@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sandra Turismo e Excursões</title>
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png"
+    href="https://iaewrojuatewdebifnrv.supabase.co/storage/v1/object/public/Imagem%20Site/Favicon.png" />
+
+  <!-- SEO & Social Media (OG) -->
+  <meta name="description"
+    content="Sandra Turismo e Excursões - Viagens dos Sonhos com conforto, segurança e roteiros inesquecíveis." />
+  <meta property="og:title" content="Sandra Turismo e Excursões" />
+  <meta property="og:description" content="Viagens dos Sonhos com conforto, segurança e roteiros inesquecíveis." />
+  <meta property="og:image"
+    content="https://iaewrojuatewdebifnrv.supabase.co/storage/v1/object/public/Imagem%20Site/Favicon.png" />
+  <meta property="og:type" content="website" />
+  <meta name="theme-color" content="#0F3460" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Montserrat:wght@600;700&display=swap"
+    rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: '#0F3460', // Royal Navy Blue
+            action: '#E94560', // Sunset Orange
+            surface: '#F7F9FC', // Off-White
+            success: '#10B981', // Teal Green
+          },
+          fontFamily: {
+            sans: ['Lato', 'sans-serif'],
+            heading: ['Montserrat', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #F7F9FC;
+      color: #1f2937;
+    }
+
+    /* Hide scrollbar for clean horizontal scroll on mobile */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+
+  <!-- Mercado Pago SDK -->
+  <script src="https://sdk.mercadopago.com/js/v2"></script>
+  <script type="module" src="/src/index.tsx"></script>
+</head>
+
+<body>
+  <div id="root"></div>
+</body>
+
+</html>
