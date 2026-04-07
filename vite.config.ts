@@ -9,10 +9,12 @@ export default defineConfig(({ mode }) => {
       port: 3000,
       host: '0.0.0.0',
     },
-    base: '/clientes/PRJ-0007/',
+    base: mode === 'production' ? '/Novo/' : '/',
+    build: {
+      outDir: 'Deploy',
+    },
     plugins: [react()],
     define: {
-      'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
     },
     resolve: {

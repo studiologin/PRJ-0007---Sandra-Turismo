@@ -37,7 +37,6 @@ export const Footer: React.FC<FooterProps> = ({ onAdminClick }) => {
             <ul className="space-y-3 text-gray-300 text-sm">
               <li><a href="#" className="hover:text-white transition-colors">Início</a></li>
               <li><a href="#" className="hover:text-white transition-colors">Próximas Excursões</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Passagens Aéreas</a></li>
               <li><a href="#" className="hover:text-white transition-colors">Sobre</a></li>
               <li><a href="#" className="hover:text-white transition-colors">Área da Cliente</a></li>
               {onAdminClick && (
@@ -57,7 +56,7 @@ export const Footer: React.FC<FooterProps> = ({ onAdminClick }) => {
               <li className="flex items-start gap-3">
                 <Phone size={18} className="text-action mt-1 shrink-0" />
                 <span>
-                  (11) 99999-9999<br />
+                  (11) 99238-7001<br />
                   <span className="text-xs opacity-70">Seg a Sex, 09h às 18h</span>
                 </span>
               </li>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { AlertCircle, Lock, User as UserIcon } from 'lucide-react';
+import { AlertCircle, Lock, User as UserIcon, Eye, EyeOff } from 'lucide-react';
 import { Button } from './Button';
+import { supabase } from '../lib/supabase';
 
 interface AdminLoginFormProps {
   onLogin: () => void;
@@ -13,22 +14,50 @@ const AdminLoginForm: React.FC<AdminLoginFormProps> = ({ onLogin, onCancel, logo
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email || !password) {
+      setError('Por favor, preencha todos os campos.');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
-    // Simulate Admin Verification
-    setTimeout(() => {
-      if (email === 'admin@sandraturismo.com.br' && password === 'admin123') {
+    try {
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (authError) {
+        setError('E-mail ou senha incorretos.');
         setLoading(false);
-        onLogin();
-      } else {
-        setLoading(false);
-        setError('Credenciais inválidas.');
+      } else if (data.user) {
+        // Verifica se o usuário é realmente um admin
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', data.user.id)
+          .single();
+
+        if (!profileError && profile?.role === 'admin') {
+          // Confirmado como admin, agora podemos prosseguir
+          onLogin();
+        } else {
+          // Se não for admin, desconecta imediatamente por segurança
+          await supabase.auth.signOut();
+          setError('Acesso negado. Esta área é restrita para administradores.');
+          setLoading(false);
+        }
       }
-    }, 1500);
+    } catch (err) {
+      console.error('Erro no login admin:', err);
+      setError('Ocorreu um erro ao tentar acessar o painel.');
+      setLoading(false);
+    }
   };
 
   return (
@@ -72,12 +101,19 @@ const AdminLoginForm: React.FC<AdminLoginFormProps> = ({ onLogin, onCancel, logo
               <div className="relative">
                 <Lock className="absolute left-4 top-3.5 text-gray-400" size={20} />
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-12 p-3 bg-gray-50 rounded-lg border border-gray-200 focus:border-brand outline-none transition-colors"
+                  className="w-full pl-12 pr-12 p-3 bg-gray-50 rounded-lg border border-gray-200 focus:border-brand outline-none transition-colors"
                   placeholder="••••••••"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-brand transition-colors p-1"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
               </div>
             </div>
 

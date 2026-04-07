@@ -9,17 +9,14 @@ export interface Trip {
   description: string;
   included: string[];
   destination: string;
+  payment_link?: string;
+  is_active?: boolean;
+  is_featured?: boolean;
+  max_installments?: number;
+  return_date?: string;
+  images?: string[];
 }
 
-export interface FlightResult {
-  id: string;
-  airline: string;
-  departure: string;
-  arrival: string;
-  duration: string;
-  stops: number;
-  price: number;
-}
 
 export interface Booking {
   id: string;
@@ -51,7 +48,6 @@ export enum ViewState {
   HOME = 'HOME',
   ABOUT = 'ABOUT',
   CONTACT = 'CONTACT',
-  FLIGHTS = 'FLIGHTS',
   MY_TRIPS = 'MY_TRIPS',
   TRIP_DETAILS = 'TRIP_DETAILS',
   ALL_TRIPS = 'ALL_TRIPS',

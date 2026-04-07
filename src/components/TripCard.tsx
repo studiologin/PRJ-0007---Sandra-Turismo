@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Trip } from '../types';
-import { Calendar, MapPin, CheckCircle2, Users, Share2, MessageCircle, Facebook, Instagram, Copy, X } from 'lucide-react';
+import { Calendar, MapPin, CheckCircle2, Users, Share2, MessageCircle, Facebook, Instagram, Copy, X, Bus, Building2, ShieldCheck, Map } from 'lucide-react';
 import { Button } from './Button';
 import { formatDateBR } from '../lib/format';
 
@@ -44,88 +44,76 @@ export const TripCard: React.FC<TripCardProps> = ({ trip, onSelect }) => {
   return (
     <>
       <div 
-        className="bg-white rounded-[2rem] shadow-lg overflow-hidden border border-gray-100 flex flex-col h-full transform transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 group cursor-pointer"
+        className="bg-white rounded-[2rem] shadow-[0_15px_40px_rgba(0,0,0,0.06)] overflow-hidden border border-slate-100 flex flex-col h-full transform transition-all duration-500 hover:shadow-[0_25px_60px_rgba(0,0,0,0.12)] hover:-translate-y-1 group cursor-pointer"
         onClick={() => onSelect(trip)}
       >
-        <div className="relative h-64 overflow-hidden">
-          <img
-            src={trip.image}
-            alt={trip.title}
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-          
-          <div className="absolute top-4 right-4 z-10">
-            <button 
-              onClick={handleShare}
-              className="p-3 bg-white/20 backdrop-blur-md rounded-full text-white border border-white/30 hover:bg-white hover:text-brand transition-all shadow-xl"
-            >
-              <Share2 size={18} />
-            </button>
-          </div>
+        <div className="relative">
+          <div className="relative h-64 md:h-72 overflow-hidden">
+            <img
+              src={trip.image}
+              alt={trip.title}
+              className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
+            />
+            {/* Subtle Gradient for readability of share button */}
+            <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
 
-          <div className="absolute bottom-4 left-4 bg-action/90 backdrop-blur-md px-4 py-1.5 rounded-full text-white font-black text-[10px] uppercase tracking-widest shadow-lg flex items-center gap-2 border border-white/20">
-            <Users size={12} />
-            {trip.spots} vagas disponíveis
+            {/* Vagas Badge - BOTTOM RIGHT */}
+            <div className="absolute bottom-4 right-4 z-40 bg-white px-3 py-1.5 rounded-full text-brand shadow-xl flex items-center gap-2 border border-slate-100 animate-in fade-in slide-in-from-right-4">
+              <Users size={12} className="text-action" />
+              <span className="text-[10px] font-black uppercase tracking-tight">{trip.spots} VAGAS</span>
+            </div>
+
+            {/* Share Button */}
+            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+               <button 
+                  onClick={handleShare}
+                  className="p-2 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white hover:text-brand transition-all border border-white/20"
+               >
+                  <Share2 size={12} />
+               </button>
+            </div>
           </div>
         </div>
 
-        <div className="p-6 flex-1 flex flex-col">
+        <div className="p-6 md:p-8 flex-1 flex flex-col bg-white">
           <div className="flex-1">
-            <h3 className="font-heading text-xl text-brand font-black mb-3 leading-tight group-hover:text-action transition-colors">{trip.title}</h3>
+            <h3 className="text-xl font-black text-brand mb-4 leading-tight tracking-tight line-clamp-2">{trip.title}</h3>
 
-            <div className="space-y-2.5 mb-6">
-              <div className="flex items-center text-gray-500 font-medium text-sm">
-                <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center mr-3">
-                    <Calendar className="w-4 h-4 text-action" />
-                </div>
+            <div className="space-y-3 mb-6">
+              <div className="flex items-center text-slate-500 font-bold text-sm">
+                <Calendar className="w-4 h-4 text-action mr-3 shrink-0" />
                 <span>{formatDateBR(trip.date)} • {trip.duration}</span>
               </div>
-              <div className="flex items-center text-gray-500 font-medium text-sm">
-                <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center mr-3">
-                    <MapPin className="w-4 h-4 text-action" />
-                </div>
-                <span>{trip.destination}</span>
+              <div className="flex items-center text-slate-500 font-bold text-sm">
+                <MapPin className="w-4 h-4 text-action mr-3 shrink-0" />
+                <span className="truncate">{trip.destination}</span>
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-2 mb-6">
-              {trip.included.slice(0, 3).map((item, idx) => (
-                <span key={idx} className="inline-flex items-center bg-gray-50 text-gray-400 text-[10px] font-black uppercase tracking-tighter px-3 py-1 rounded-full border border-gray-100">
-                  {item}
-                </span>
-              ))}
-              {trip.included.length > 3 && <span className="text-[10px] font-bold text-gray-300">+{trip.included.length - 3} mais</span>}
-            </div>
           </div>
 
-          <div className="pt-6 border-t border-gray-50">
+          <div className="pt-6 border-t border-slate-50 mt-auto">
             <div className="flex items-end justify-between mb-6">
-              <div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Investimento</p>
-                <p className="text-2xl font-black text-brand leading-none">
-                  {trip.max_installments && trip.max_installments > 1
-                    ? <span className="text-sm font-bold text-gray-400 line-through mr-2">R$ {trip.price.toLocaleString('pt-BR')}</span>
-                    : null
-                  }
-                  R$ {trip.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </p>
+              <span className="text-[10px] font-bold text-slate-400">Por pessoa</span>
+              <div className="text-right">
+                {trip.price >= 500 ? (
+                  <p className="text-2xl font-black text-brand tracking-tighter">
+                    10x de R$ {(trip.price / 10).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </p>
+                ) : (
+                  <p className="text-2xl font-black text-brand tracking-tighter">
+                    R$ {trip.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </p>
+                )}
               </div>
-              {trip.max_installments && trip.max_installments > 1 && (
-                <div className="text-right">
-                    <p className="text-[10px] font-black text-action uppercase tracking-tighter">Em até {trip.max_installments}x de</p>
-                    <p className="text-lg font-black text-action">R$ {(trip.price / trip.max_installments).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                </div>
-              )}
             </div>
-            <Button 
-                variant="brand" 
-                fullWidth 
-                className="rounded-2xl py-4 font-black uppercase tracking-widest text-xs h-auto shadow-xl shadow-brand/10"
+            
+            <button 
+                className="w-full bg-brand text-white rounded-xl py-4 font-black uppercase tracking-widest text-[11px] hover:bg-brand/95 transition-all shadow-[0_10px_20px_rgba(15,52,96,0.1)] active:scale-95"
                 onClick={() => onSelect(trip)}
             >
-              Ver Detalhes
-            </Button>
+              VER DETALHES
+            </button>
           </div>
         </div>
       </div>
@@ -151,7 +139,7 @@ export const TripCard: React.FC<TripCardProps> = ({ trip, onSelect }) => {
                       option.action();
                       setShowShareModal(false);
                     }}
-                    className="w-full flex items-center justify-between p-4 rounded-2xl hover:bg-gray-50 transition-all border border-gray-100 group"
+                    className="w-full flex items-center justify-between p-4 rounded-2xl hover:bg-gray-50 transition-all border border-slate-200 group"
                   >
                     <div className="flex items-center gap-4">
                       <div className={`${option.color} text-white p-3 rounded-xl shadow-lg`}>

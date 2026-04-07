@@ -20,11 +20,12 @@ import { formatMonthBR } from '../lib/format';
 
 interface AllTripsViewProps {
     trips: Trip[];
+    banner: any;
     onBack: () => void;
     onSelectTrip: (trip: Trip) => void;
 }
 
-export const AllTripsView: React.FC<AllTripsViewProps> = ({ trips, onBack, onSelectTrip }) => {
+export const AllTripsView: React.FC<AllTripsViewProps> = ({ trips, banner, onBack, onSelectTrip }) => {
     const activeTrips = trips.filter(t => t.is_active !== false);
 
     // Derived Data for Range Initialization
@@ -253,27 +254,31 @@ export const AllTripsView: React.FC<AllTripsViewProps> = ({ trips, onBack, onSel
     };
 
     return (
-        <div className="animate-fade-in pb-20 bg-[#F8FAFC] min-h-screen">
-            {/* Header / Navigation */}
-            <div className="bg-white border-b border-gray-100 sticky top-0 z-50 shadow-sm">
-                <div className="container mx-auto max-w-7xl px-4 h-16 flex items-center gap-6">
-                    <button
-                        onClick={onBack}
-                        className="flex items-center gap-2 text-gray-600 hover:text-brand font-bold transition-colors"
-                    >
-                        <ArrowLeft size={20} />
-                        <span>Voltar</span>
-                    </button>
-                    <div className="h-6 w-px bg-gray-200" />
-                    <h1 className="text-xl font-bold text-brand flex items-center gap-2">
-                        <Map size={20} className="text-action" />
-                        Pacotes, Excursões e Roteiros
-                    </h1>
+        <div className="animate-fade-in pb-20 bg-[#F8FAFC] min-h-screen font-sans">
+            {/* Header Hero */}
+            <section className="bg-brand relative min-h-[calc(100vh-120px)] flex items-center justify-center overflow-hidden">
+                <div className="absolute inset-0 z-0">
+                    <img
+                        src={banner?.image_url || "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&q=80&w=2000"}
+                        alt="Banner Background"
+                        className="w-full h-full object-cover animate-slow-zoom"
+                    />
+                    <div className="absolute inset-0 bg-brand/60 backdrop-blur-[2px]" />
                 </div>
-            </div>
+
+                <div className="container mx-auto max-w-7xl px-4 relative z-10 text-center -mt-12 md:-mt-20">
+                    <h1 className="text-4xl md:text-6xl lg:text-7xl font-black text-white mb-4 uppercase tracking-tighter animate-in fade-in slide-in-from-bottom-8 duration-700">
+                        {banner?.title || "Pacotes e Excursões"}
+                    </h1>
+                    <p className="text-white/90 text-lg md:text-xl max-w-2xl mx-auto font-medium animate-in fade-in slide-in-from-bottom-12 duration-1000">
+                        {banner?.subtitle || "Explore diversos destinos com o conforto e a segurança que só a Sandra Turismo oferece."}
+                    </p>
+                </div>
+            </section>
+
 
             {/* Sticky Search & Toggle Bar */}
-            <div className="bg-white border-b border-gray-100 py-5 sticky top-16 z-40 transition-all">
+            <div className="bg-white border-b border-gray-100 py-5 sticky top-0 z-40 transition-all shadow-sm">
                 <div className="container mx-auto max-w-7xl px-4">
                     <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
                         {/* Unified Search */}
@@ -387,7 +392,7 @@ export const AllTripsView: React.FC<AllTripsViewProps> = ({ trips, onBack, onSel
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-10">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
                     {filteredTrips.map(trip => (
                         <TripCard
                             key={trip.id}

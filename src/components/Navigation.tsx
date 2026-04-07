@@ -1,19 +1,22 @@
 import React from 'react';
 import { ViewState } from '../types';
-import { Home, Plane, User, Phone, Menu, Users, Map, MessageSquare } from 'lucide-react';
+import { Home, Plane, User, Phone, Menu, Users, Map, MessageSquare, LogOut } from 'lucide-react';
 import logo from '../assets/logo.png';
 
 interface NavigationProps {
   currentView: ViewState;
   onNavigate: (view: ViewState) => void;
+  isLoggedIn?: boolean;
+  isAdmin?: boolean;
+  onLogout?: () => void;
 }
 
-export const Navigation: React.FC<NavigationProps> = ({ currentView, onNavigate }) => {
+export const Navigation: React.FC<NavigationProps> = ({ currentView, onNavigate, isLoggedIn, isAdmin, onLogout }) => {
   return (
     <>
       {/* Desktop Header */}
       <header className="hidden md:block bg-brand/95 backdrop-blur-md text-white sticky top-0 z-50 shadow-xl border-b border-white/10">
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="container mx-auto px-6 py-3 flex items-center justify-between">
           <div
             className="flex items-center gap-3 cursor-pointer group"
             onClick={() => onNavigate(ViewState.HOME)}
@@ -21,7 +24,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentView, onNavigate 
             <img
               src={logo}
               alt="Sandra Tur"
-              className="h-24 w-auto drop-shadow-2xl transition-all duration-500 group-hover:scale-105 group-hover:rotate-1"
+              className="h-16 w-auto drop-shadow-2xl transition-all duration-500 group-hover:scale-105 group-hover:rotate-1"
             />
           </div>
 
@@ -30,7 +33,6 @@ export const Navigation: React.FC<NavigationProps> = ({ currentView, onNavigate 
               { id: ViewState.HOME, label: 'INÍCIO' },
               { id: ViewState.ABOUT, label: 'SOBRE' },
               { id: ViewState.ALL_TRIPS, label: 'PACOTES' },
-              { id: ViewState.FLIGHTS, label: 'PASSAGENS' },
               { id: ViewState.CONTACT, label: 'CONTATO' },
             ].map((item) => (
               <button
@@ -46,31 +48,45 @@ export const Navigation: React.FC<NavigationProps> = ({ currentView, onNavigate 
             ))}
           </nav>
 
-          <div className="flex items-center gap-6">
-            <button
-              onClick={() => onNavigate(ViewState.MY_TRIPS)}
-              className="flex items-center gap-2 bg-white text-brand px-6 py-3 rounded-full font-black text-sm uppercase tracking-tighter hover:bg-action hover:text-white transition-all duration-300 shadow-lg hover:shadow-action/20 active:scale-95 border-2 border-transparent hover:border-white/20"
-            >
-              <User size={18} />
-              Área do Cliente
-            </button>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center bg-white rounded-full pr-2 shadow-lg hover:shadow-brand/10 transition-all duration-300">
+              <button
+                onClick={() => onNavigate(ViewState.MY_TRIPS)}
+                className="flex items-center gap-2 bg-white text-brand px-6 py-3 rounded-full font-black text-sm uppercase tracking-tighter hover:bg-emerald-50 transition-all duration-300 active:scale-95 border-2 border-transparent"
+              >
+                <User size={18} />
+                {isAdmin ? 'Painel Admin' : 'Área do Cliente'}
+              </button>
+              {isLoggedIn && onLogout && (
+                <button
+                  onClick={onLogout}
+                  title="Encerrar Sessão"
+                  className="p-2 text-gray-300 hover:text-red-500 transition-all duration-300 border-l border-gray-100 ml-1"
+                >
+                  <LogOut size={16} />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </header>
 
       {/* Mobile Top Bar */}
-      <div className="md:hidden bg-brand/95 backdrop-blur-md text-white py-3 px-4 sticky top-0 z-50 flex justify-between items-center shadow-lg border-b border-white/10">
-        <div className="flex items-center gap-2" onClick={() => onNavigate(ViewState.HOME)}>
-          <img src={logo} alt="Sandra Tur" className="h-14 w-auto drop-shadow-xl" />
+      <div className="md:hidden bg-brand/95 backdrop-blur-md text-white py-2.5 px-4 sticky top-0 z-50 flex items-center justify-between shadow-lg border-b border-white/10">
+        <div className="w-8" /> {/* Spacer for centering logo */}
+        <div className="flex items-center gap-2 cursor-pointer" onClick={() => onNavigate(ViewState.HOME)}>
+          <img src={logo} alt="Sandra Tur" className="h-10 w-auto drop-shadow-xl" />
         </div>
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => onNavigate(ViewState.MY_TRIPS)}
-            className={`p-2 rounded-full ${currentView === ViewState.MY_TRIPS ? 'bg-action text-white' : 'bg-white/10 text-white'}`}
-          >
-            <User size={20} />
-          </button>
-          <Menu className="text-white" />
+        <div className="flex items-center">
+          {isLoggedIn && onLogout && (
+            <button 
+              onClick={onLogout} 
+              className="p-2 text-white/80 hover:text-red-400 transition-colors"
+              title="Sair"
+            >
+              <LogOut size={20} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -101,13 +117,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentView, onNavigate 
             <span className="text-[10px] font-bold">Pacotes</span>
           </button>
 
-          <button
-            onClick={() => onNavigate(ViewState.FLIGHTS)}
-            className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${currentView === ViewState.FLIGHTS ? 'text-brand' : 'text-gray-400'}`}
-          >
-            <Plane size={24} strokeWidth={currentView === ViewState.FLIGHTS ? 2.5 : 2} />
-            <span className="text-[10px] font-bold">Passagens</span>
-          </button>
+
 
           <button
             onClick={() => onNavigate(ViewState.CONTACT)}
@@ -122,7 +132,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentView, onNavigate 
             className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${currentView === ViewState.MY_TRIPS ? 'text-brand' : 'text-gray-400'}`}
           >
             <User size={24} strokeWidth={currentView === ViewState.MY_TRIPS ? 2.5 : 2} />
-            <span className="text-[10px] font-bold">Perfil</span>
+            <span className="text-[10px] font-bold">{isAdmin ? 'Admin' : 'Perfil'}</span>
           </button>
         </div>
       </div>

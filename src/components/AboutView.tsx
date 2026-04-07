@@ -173,7 +173,7 @@ export const AboutView: React.FC<AboutViewProps> = ({ banner }) => {
             {/* CTA Section */}
             <section className="py-20 bg-white">
                 <div className="container mx-auto max-w-4xl px-4 text-center">
-                    <div className="bg-surface p-12 rounded-[3rem] border-2 border-brand/5 shadow-2xl">
+                    <div className="bg-white p-12 rounded-[3.5rem] border border-slate-200 shadow-2xl relative overflow-hidden">
                         <h2 className="font-heading text-3xl md:text-5xl text-brand font-black mb-6">
                             Pronto para sua próxima aventura?
                         </h2>

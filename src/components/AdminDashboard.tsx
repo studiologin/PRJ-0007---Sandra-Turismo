@@ -24,41 +24,20 @@ import {
   Image as ImageIcon,
   Upload,
   Star,
-  Check
+  Check,
+  CreditCard,
+  Lock,
+  AlertTriangle
 } from 'lucide-react';
 import { formatDateBR } from '../lib/format';
 import { Button } from './Button';
+import { encryptValue, decryptValue } from '../lib/encryption';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line } from 'recharts';
+import logo from '../assets/logo.png';
 
 interface AdminDashboardProps {
   onLogout: () => void;
 }
-
-// Mock Data for Admin
-const RECENT_SALES = [
-  { id: 1, customer: "Maria Silva", trip: "Caldas Novas Relax", date: "28/01/2026", amount: 1250, status: "Pago" },
-  { id: 2, customer: "Joana D'arc", trip: "Aparecida da Fé", date: "28/01/2026", amount: 890, status: "Pendente" },
-  { id: 3, customer: "Lúcia Ferreira", trip: "Serra Gaúcha", date: "27/01/2026", amount: 2400, status: "Pago" },
-  { id: 4, customer: "Antônia Santos", trip: "Caldas Novas Relax", date: "27/01/2026", amount: 1250, status: "Pago" },
-];
-
-const SALES_DATA = [
-  { name: 'Jan', vendas: 4000 },
-  { name: 'Fev', vendas: 3000 },
-  { name: 'Mar', vendas: 2000 },
-  { name: 'Abr', vendas: 2780 },
-  { name: 'Mai', vendas: 1890 },
-  { name: 'Jun', vendas: 2390 },
-];
-
-const MOCK_BOOKINGS_ADMIN = [
-  { id: 'RES-8832', client: 'Maria Silva', trip: 'Caldas Novas Relax', date: '15/03/2026', seats: 2, total: 2500, status: 'Confirmado', payment: 'Pix' },
-  { id: 'RES-8833', client: 'João Souza', trip: 'Aparecida da Fé', date: '22/04/2026', seats: 1, total: 890, status: 'Pendente', payment: 'Boleto' },
-  { id: 'RES-8834', client: 'Ana Pereira', trip: 'Serra Gaúcha', date: '10/06/2026', seats: 2, total: 4800, status: 'Confirmado', payment: 'Cartão' },
-  { id: 'RES-8835', client: 'Carlos Lima', trip: 'Caldas Novas Relax', date: '15/03/2026', seats: 3, total: 3750, status: 'Cancelado', payment: '-' },
-  { id: 'RES-8836', client: 'Fernanda Costa', trip: 'Aparecida da Fé', date: '22/04/2026', seats: 1, total: 890, status: 'Confirmado', payment: 'Pix' },
-  { id: 'RES-8837', client: 'Roberto Alves', trip: 'Serra Gaúcha', date: '10/06/2026', seats: 2, total: 4800, status: 'Pendente', payment: 'Cartão' },
-];
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'trips' | 'bookings' | 'banner' | 'settings'>('dashboard');
@@ -72,6 +51,97 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [homeBanner, setHomeBanner] = useState<any>(null);
   const [aboutBanner, setAboutBanner] = useState<any>(null);
+
+  // States para Dados Dinâmicos do Painel
+  const [stats, setStats] = useState({ totalFaturamento: 0, reservasAtivas: 0, clientesCadastrados: 0 });
+  const [recentSales, setRecentSales] = useState<any[]>([]);
+  const [allBookings, setAllBookings] = useState<any[]>([]);
+  const [salesData, setSalesData] = useState<any[]>([]);
+
+  // Filtros da Aba de Excursões
+  const [filterDate, setFilterDate] = useState('Todas as datas');
+  const [filterStatus, setFilterStatus] = useState('Todos os Status');
+  const [filterFeatured, setFilterFeatured] = useState('Destaque: Todos');
+  
+  // Settings - Payment Gateway
+  const [paymentProvider, setPaymentProvider] = useState('Mercado Pago');
+  const [gatewayToken, setGatewayToken] = useState('');
+  const [publicKey, setPublicKey] = useState('');
+  const [savingSettings, setSavingSettings] = useState(false);
+
+  const fetchDashboardData = async () => {
+    // 1. Clientes
+    const { count: clientsCount } = await supabase
+      .from('profiles')
+      .select('*', { count: 'exact', head: true })
+      .eq('role', 'client');
+
+    // 2. Bookings (reservas)
+    const { data: bookingsData } = await supabase
+      .from('bookings')
+      .select(`
+        *,
+        profiles ( full_name ),
+        trips ( title, date )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (bookingsData) {
+      let faturamento = 0;
+      let ativas = 0;
+      const bookingsFormatted = [];
+      const salesByMonth: Record<string, number> = {};
+
+      for (const b of bookingsData) {
+        const status = b.status || 'Pendente';
+        const amount = Number(b.total_price) || 0;
+        
+        if (status !== 'Cancelado') {
+          ativas += 1;
+        }
+        
+        if (status === 'Confirmado' || status === 'Pago') {
+          faturamento += amount;
+          
+          const dateObj = new Date(b.created_at);
+          const monthStr = dateObj.toLocaleString('pt-BR', { month: 'short' });
+          salesByMonth[monthStr] = (salesByMonth[monthStr] || 0) + amount;
+        }
+
+        bookingsFormatted.push({
+          id: b.id,
+          booking_code: b.booking_code || String(b.id).substring(0,8).toUpperCase(),
+          client: b.profiles?.full_name || 'Desconhecido',
+          customer: b.profiles?.full_name || 'Desconhecido',
+          trip: b.trips?.title || 'Excursão sem Nome',
+          date: b.trips?.date || '',
+          seats: b.passengers,
+          total: amount,
+          amount: amount,
+          status: status,
+          payment: b.payment_method || '-'
+        });
+      }
+
+      setStats({
+        totalFaturamento: faturamento,
+        reservasAtivas: ativas,
+        clientesCadastrados: clientsCount || 0
+      });
+
+      setRecentSales(bookingsFormatted.filter(b => b.status !== 'Cancelado').slice(0, 4));
+      setAllBookings(bookingsFormatted);
+
+      const monthsOrder = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+      const chartArr = Object.keys(salesByMonth).map(m => ({
+        name: m.charAt(0).toUpperCase() + m.slice(1),
+        vendas: salesByMonth[m]
+      })).sort((a, b) => monthsOrder.indexOf(a.name.toLowerCase()) - monthsOrder.indexOf(b.name.toLowerCase()));
+      
+      if (chartArr.length === 0) chartArr.push({ name: 'Mês Atual', vendas: 0 });
+      setSalesData(chartArr);
+    }
+  };
 
   // Fetch Trips from Supabase
   const fetchTrips = async () => {
@@ -116,10 +186,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     }
   };
 
+  const fetchSettings = async () => {
+    const { data: settingsData } = await supabase
+      .from('secure_settings')
+      .select('*');
+
+    if (settingsData) {
+      const provider = settingsData.find(s => s.key === 'payment_provider')?.value || 'Mercado Pago';
+      const token = settingsData.find(s => s.key === 'gateway_access_token')?.value || '';
+      const pubKey = settingsData.find(s => s.key === 'client_id_public_key')?.value || '';
+      
+      setPaymentProvider(provider);
+      setGatewayToken(decryptValue(token));
+      setPublicKey(decryptValue(pubKey));
+    }
+  };
+
   useEffect(() => {
     fetchTrips();
     fetchHomeBanner();
     fetchAboutBanner();
+    fetchDashboardData();
+    fetchSettings();
   }, []);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -248,6 +336,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     fetchTrips();
   };
 
+  const handleSavePaymentSettings = async () => {
+    if (!gatewayToken || !publicKey) {
+      alert('Por favor, preencha as chaves de API para salvar.');
+      return;
+    }
+
+    setSavingSettings(true);
+    const settingsToSave = [
+      { key: 'payment_provider', value: paymentProvider },
+      { key: 'gateway_access_token', value: encryptValue(gatewayToken) },
+      { key: 'client_id_public_key', value: encryptValue(publicKey) }
+    ];
+
+    const { error } = await supabase
+      .from('secure_settings')
+      .upsert(settingsToSave);
+
+    if (error) {
+      alert('Erro ao salvar configurações de pagamento: ' + error.message);
+    } else {
+      alert('Configurações de pagamento criptografadas e salvas com sucesso!');
+    }
+    setSavingSettings(false);
+  };
+
   const StatCard = ({ title, value, icon: Icon, trend }: any) => (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
       <div>
@@ -295,11 +408,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     <div className="flex min-h-screen bg-[#F0F2F5]">
       {/* Sidebar */}
       <aside className="w-64 bg-brand text-white hidden md:flex flex-col fixed h-full z-10">
-        <div className="p-6 border-b border-white/10">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-action rounded-lg flex items-center justify-center font-bold text-white">S</div>
-            <span className="font-heading font-bold text-lg">Admin Panel</span>
-          </div>
+        <div className="p-4 border-b border-white/10 flex items-center justify-center">
+            <img src={logo} alt="Sandra Tur" className="h-20 w-auto brightness-0 invert" />
         </div>
 
         <nav className="flex-1 p-4 space-y-2">
@@ -363,44 +473,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                 <h1 className="text-2xl font-heading font-bold text-gray-800">Painel de Controle</h1>
                 <p className="text-gray-500">Bem-vindo de volta, Administrador.</p>
               </div>
-              <Button onClick={() => alert('Funcionalidade de Nova Venda em desenvolvimento')}>
-                <Plus size={18} /> Nova Venda
-              </Button>
             </div>
 
             {/* Stats Grid */}
-            <div className="flex gap-6 mb-4">
-              <label className="flex items-center gap-2 cursor-pointer group">
-                <div className="relative">
-                  <input
-                    type="checkbox"
-                    className="sr-only peer"
-                    checked={editingTrip?.is_active !== false}
-                    onChange={e => setEditingTrip({ ...editingTrip!, is_active: e.target.checked })}
-                  />
-                  <div className="w-10 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand"></div>
-                </div>
-                <span className="text-sm font-bold text-gray-700 group-hover:text-brand transition-colors">Excursão Ativa</span>
-              </label>
 
-              <label className="flex items-center gap-2 cursor-pointer group">
-                <div className="relative">
-                  <input
-                    type="checkbox"
-                    className="sr-only peer"
-                    checked={editingTrip?.is_featured || false}
-                    onChange={e => setEditingTrip({ ...editingTrip!, is_featured: e.target.checked })}
-                  />
-                  <div className="w-10 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
-                </div>
-                <span className="text-sm font-bold text-gray-700 group-hover:text-amber-600 transition-colors">Em Destaque (Home)</span>
-              </label>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <StatCard title="Faturamento Total" value="R$ 48.250" icon={DollarSign} trend="+12% este mês" />
-              <StatCard title="Reservas Ativas" value="142" icon={CalendarCheck} trend="+5 novos hoje" />
-              <StatCard title="Clientes Cadastrados" value="1.204" icon={Users} />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <StatCard title="Faturamento Total" value={`R$ ${stats.totalFaturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} icon={DollarSign} />
+              <StatCard title="Reservas Ativas" value={stats.reservasAtivas.toString()} icon={CalendarCheck} />
+              <StatCard title="Clientes Cadastrados" value={stats.clientesCadastrados.toString()} icon={Users} />
             </div>
 
             {/* Charts Section */}
@@ -409,7 +490,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                 <h3 className="font-bold text-lg text-gray-800 mb-6">Desempenho de Vendas (Semestral)</h3>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={SALES_DATA}>
+                    <LineChart data={salesData}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                       <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#9CA3AF' }} />
                       <YAxis axisLine={false} tickLine={false} tick={{ fill: '#9CA3AF' }} />
@@ -423,7 +504,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
               <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                 <h3 className="font-bold text-lg text-gray-800 mb-6">Vendas Recentes</h3>
                 <div className="space-y-4">
-                  {RECENT_SALES.map(sale => (
+                  {recentSales.map(sale => (
                     <div key={sale.id} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors border-b border-gray-50 last:border-0">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center font-bold text-gray-600 text-xs">
@@ -440,8 +521,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                       </div>
                     </div>
                   ))}
-                </div>
                 <button className="w-full mt-4 text-center text-sm text-action font-bold hover:underline">Ver todas as vendas</button>
+                </div>
               </div>
             </div>
           </div>
@@ -449,105 +530,154 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
         {activeTab === 'trips' && (
           <div className="animate-fade-in space-y-6">
-            <div className="flex justify-between items-center">
+            {/* Header & Filters Inline */}
+            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
               <div>
                 <h1 className="text-2xl font-heading font-bold text-gray-800">Gerenciar Excursões</h1>
                 <p className="text-gray-500">Controle de estoque, datas e roteiros.</p>
               </div>
-              <Button onClick={() => { setEditingTrip({ is_active: true, included: [], images: [] }); setIsModalOpen(true); }}>
-                <Plus size={18} /> Criar Nova Viagem
-              </Button>
-            </div>
+              
+              <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+                <div className="relative flex-1 min-w-[200px]">
+                  <Search className="absolute left-3 top-3 text-gray-400" size={18} />
+                  <input
+                    type="text"
+                    placeholder="Buscar excursão..."
+                    className="w-full pl-10 p-2.5 bg-white rounded-lg outline-none border border-gray-200 focus:border-action transition-colors text-sm"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                
+                <select 
+                  className="bg-white border border-gray-200 p-2.5 rounded-lg outline-none text-gray-600 text-sm font-medium cursor-pointer"
+                  value={filterDate}
+                  onChange={(e) => setFilterDate(e.target.value)}
+                >
+                  <option>Todas as datas</option>
+                  <option>Próximo Mês</option>
+                  <option>Últimos 3 Meses</option>
+                </select>
 
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-3 text-gray-400" size={20} />
-                <input
-                  type="text"
-                  placeholder="Buscar excursão..."
-                  className="w-full pl-10 p-2.5 bg-gray-50 rounded-lg outline-none border border-transparent focus:border-brand transition-colors"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
+                <select 
+                  className="bg-white border border-gray-200 p-2.5 rounded-lg outline-none text-gray-600 text-sm font-medium cursor-pointer"
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                >
+                  <option>Todos os Status</option>
+                  <option>Ativas</option>
+                  <option>Ocultas</option>
+                </select>
+
+                <select 
+                  className="bg-white border border-gray-200 p-2.5 rounded-lg outline-none text-gray-600 text-sm font-medium cursor-pointer"
+                  value={filterFeatured}
+                  onChange={(e) => setFilterFeatured(e.target.value)}
+                >
+                  <option>Destaque: Todos</option>
+                  <option>Sim (Destaque)</option>
+                  <option>Não (Destaque)</option>
+                </select>
+
+                <button 
+                  onClick={() => { setEditingTrip({ is_active: true, included: [], images: [] }); setIsModalOpen(true); }}
+                  className="bg-action hover:bg-action/90 text-white px-6 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 transition-all shadow-lg shadow-action/20"
+                >
+                  <Plus size={18} /> Criar Nova Viagem
+                </button>
               </div>
-              <select className="bg-gray-50 p-2.5 rounded-lg outline-none text-gray-600 font-medium">
-                <option>Todas as datas</option>
-                <option>Próximo Mês</option>
-              </select>
             </div>
 
             {loading ? (
               <div className="flex justify-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-action"></div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {trips.filter(t => t.title.toLowerCase().includes(searchTerm.toLowerCase())).map(trip => (
-                  <div key={trip.id} className={`bg-white rounded-xl shadow-sm border-2 border-action overflow-hidden flex flex-col ${!trip.is_active ? 'opacity-60' : ''}`}>
-                    <div className="relative h-40">
-                      <img src={trip.image} className="w-full h-full object-cover" alt={trip.title} />
-                      <div className="absolute top-2 right-2 flex gap-2">
-                        {!trip.is_active && (
-                          <div className="bg-gray-800/80 text-white px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm">
-                            Oculta
-                          </div>
-                        )}
-                        <div className="bg-white px-2 py-1 rounded text-xs font-bold shadow flex items-center gap-2">
-                          <button
-                            onClick={() => handleToggleFeatured(trip.id, !!trip.is_featured)}
-                            title={trip.is_featured ? "Remover dos Destaques" : "Marcar como Destaque"}
-                            className={`transition-colors ${trip.is_featured ? 'text-amber-500 hover:text-amber-600' : 'text-gray-300 hover:text-amber-500'}`}
-                          >
-                            <Star size={16} fill={trip.is_featured ? "currentColor" : "none"} />
-                          </button>
-                          <span className="w-px h-3 bg-gray-200" />
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
+                {trips
+                  .filter(t => {
+                    const matchesSearch = t.title.toLowerCase().includes(searchTerm.toLowerCase());
+                    const matchesStatus = filterStatus === 'Todos os Status' 
+                      ? true 
+                      : (filterStatus === 'Ativas' ? t.is_active : !t.is_active);
+                    const matchesFeatured = filterFeatured === 'Destaque: Todos'
+                      ? true
+                      : (filterFeatured === 'Sim (Destaque)' ? t.is_featured : !t.is_featured);
+                    
+                    // Simple date logic for now
+                    let matchesDate = true;
+                    if (filterDate === 'Próximo Mês' && t.date) {
+                      // Just a simple check if date contains future month string or something
+                    }
+
+                    return matchesSearch && matchesStatus && matchesFeatured && matchesDate;
+                  })
+                  .map(trip => (
+                    <div key={trip.id} className={`group bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col transition-all hover:shadow-xl hover:border-action/20 ${!trip.is_active ? 'grayscale' : ''}`}>
+                      {/* Image Area with Overlays */}
+                      <div className="relative h-48 overflow-hidden">
+                        <img src={trip.image} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt={trip.title} />
+                        
+                        {/* ID Badge */}
+                        <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md text-white px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1">
+                          <Star size={10} className={trip.is_featured ? 'text-amber-400 fill-amber-400' : 'text-gray-400'} />
                           #{trip.id}
                         </div>
-                      </div>
-                    </div>
-                    <div className="p-5 flex-1 flex flex-col">
-                      <div className="flex justify-between items-start mb-2">
-                        <h3 className="font-bold text-brand text-lg leading-tight">{trip.title}</h3>
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => { setEditingTrip(trip); setIsModalOpen(true); }} className="p-2 text-gray-400 hover:text-brand" title="Editar"><Edit2 size={18} /></button>
-                          <button onClick={() => handleDeleteTrip(trip.id)} className="p-2 text-gray-400 hover:text-red-500" title="Excluir"><Trash2 size={18} /></button>
-                        </div>
-                      </div>
-                      <p className="text-sm text-gray-500 mb-4">{formatDateBR(trip.date)}</p>
 
-                      <div className="mt-auto">
-                        <div className="flex justify-between text-sm mb-1">
-                          <span className="text-gray-600">Preço</span>
-                          {trip.is_featured && (
-                            <div className="bg-amber-500 text-white px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm flex items-center gap-1">
-                              <Star size={10} fill="currentColor" /> Destaque
-                            </div>
-                          )}
-                          <span className="font-bold text-brand">
-                            {trip.max_installments && trip.max_installments > 1
-                              ? `${trip.max_installments}x de R$ ${(trip.price / trip.max_installments).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                              : `R$ ${trip.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                            }
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-sm mb-4">
-                          <span className="text-gray-600">Vagas</span>
-                          <span className="font-bold text-brand">{trip.spots} restantes</span>
+                        {/* Price Overlay */}
+                        <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-sm text-brand px-3 py-1.5 rounded-lg shadow-sm">
+                          <p className="text-[10px] font-bold uppercase opacity-60">R$ {trip.price.toLocaleString('pt-BR')}</p>
                         </div>
 
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleToggleTrip(trip.id, !!trip.is_active)}
-                            className="flex-1 border border-gray-200 py-2 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-50 flex items-center justify-center gap-1"
-                          >
-                            {trip.is_active ? <XCircle size={14} /> : <CheckCircle size={14} />}
-                            {trip.is_active ? 'Ocultar' : 'Ativar'}
-                          </button>
+                        {/* Bottom Decoration Icons */}
+                        <div className="absolute bottom-3 right-3 flex flex-col items-end gap-1">
+                          <div className="p-2 bg-white/20 backdrop-blur-sm rounded-lg text-white">
+                             <CalendarCheck size={20} />
+                          </div>
                         </div>
                       </div>
+
+                      {/* Content */}
+                      <div className="p-5 flex-grow">
+                        <div className="flex justify-between items-start mb-1">
+                          <h3 className="font-bold text-gray-800 group-hover:text-action transition-colors line-clamp-1">{trip.title}</h3>
+                          <div className="flex gap-1">
+                            <button onClick={() => { setEditingTrip(trip); setIsModalOpen(true); }} className="p-1.5 text-gray-400 hover:text-action transition-colors hover:bg-action/5 rounded-md">
+                              <Edit2 size={16} />
+                            </button>
+                            <button onClick={() => handleDeleteTrip(trip.id)} className="p-1.5 text-gray-400 hover:text-red-500 transition-colors hover:bg-red-50 rounded-md">
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </div>
+                        <p className="text-xs text-brand font-medium mb-4">{trip.date}</p>
+
+                        <div className="space-y-2 mb-4 border-t border-gray-50 pt-3 text-xs">
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Preço</span>
+                            <span className="font-bold text-gray-800">
+                              {trip.max_installments && trip.max_installments > 1
+                                ? `${trip.max_installments}x de R$ ${(trip.price / trip.max_installments).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                                : `R$ ${trip.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                              }
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Vagas</span>
+                            <span className="font-bold text-brand">{trip.spots} restantes</span>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => handleToggleTrip(trip.id, !!trip.is_active)}
+                          className={`w-full py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all ${trip.is_active ? 'bg-gray-50 text-gray-600 hover:bg-gray-100' : 'bg-action text-white hover:bg-action/90 shadow-md shadow-action/20'}`}
+                        >
+                          {trip.is_active ? <XCircle size={16} /> : <CheckCircle size={16} />}
+                          {trip.is_active ? 'Ocultar' : 'Ativar'}
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             )}
           </div>
@@ -605,9 +735,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {MOCK_BOOKINGS_ADMIN.map((booking) => (
+                    {allBookings.map((booking) => (
                       <tr key={booking.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4 font-mono text-sm text-gray-500">{booking.id}</td>
+                        <td className="px-6 py-4 font-mono text-sm text-gray-500" title={booking.id}>{booking.booking_code}</td>
                         <td className="px-6 py-4">
                           <p className="font-bold text-gray-800">{booking.client}</p>
                           <p className="text-xs text-gray-400">{booking.payment}</p>
@@ -853,6 +983,83 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                 <div className="pt-4 border-t border-gray-100">
                   <Button variant="outline" onClick={() => alert('Backup automático via Supabase ativo.')}>Status de Backup</Button>
                 </div>
+              </div>
+            </div>
+
+            {/* Payment Method Configuration Card */}
+            <div className="bg-white rounded-3xl p-8 shadow-xl border border-gray-100 max-w-2xl animate-fade-in mt-8">
+              <div className="flex items-start gap-4 mb-8">
+                <div className="p-3 bg-red-50 rounded-2xl">
+                  <CreditCard className="text-red-500" size={24} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black text-gray-800 tracking-tight">Meio de Pagamento</h2>
+                  <p className="text-gray-500 text-xs font-bold uppercase tracking-widest mt-0.5">Gerencie suas chaves de API com segurança</p>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div className="group">
+                  <label className="text-brand font-black text-[10px] uppercase tracking-[0.15em] mb-2 block ml-1">Provedor de Pagamento</label>
+                  <div className="relative">
+                    <select 
+                      className="w-full pl-4 pr-10 py-4 bg-gray-50 border border-gray-100 focus:border-brand/20 rounded-2xl outline-none text-sm font-bold text-gray-700 transition-all cursor-pointer appearance-none"
+                      value={paymentProvider}
+                      onChange={(e) => setPaymentProvider(e.target.value)}
+                    >
+                      <option value="Mercado Pago">Mercado Pago</option>
+                      <option value="Pague Seguro">Pague Seguro</option>
+                    </select>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                      <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="group">
+                  <label className="text-brand font-black text-[10px] uppercase tracking-[0.15em] mb-2 block ml-1">Gateway API Key (Access Token)</label>
+                  <div className="relative">
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-brand transition-colors" size={18} />
+                    <input
+                      type="password"
+                      className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 focus:border-brand/20 rounded-2xl outline-none text-sm font-bold text-gray-700 transition-all font-mono"
+                      placeholder="APP_USR-..."
+                      value={gatewayToken}
+                      onChange={(e) => setGatewayToken(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="group">
+                  <label className="text-brand font-black text-[10px] uppercase tracking-[0.15em] mb-2 block ml-1">Client ID / Public Key</label>
+                  <div className="relative">
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-brand transition-colors" size={18} />
+                    <input
+                      type="text"
+                      className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 focus:border-brand/20 rounded-2xl outline-none text-sm font-bold text-gray-700 transition-all font-mono"
+                      placeholder="APP_USR-..."
+                      value={publicKey}
+                      onChange={(e) => setPublicKey(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100/50 flex gap-3">
+                  <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5" />
+                  <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wide leading-relaxed">
+                    <strong>IMPORTANTE:</strong> Estas chaves serão criptografadas no banco de dados usando sua Chave Mestra atual. Se você mudar a chave mestra futuramente, estas chaves precisarão ser reinseridas.
+                  </p>
+                </div>
+
+                <button 
+                  onClick={handleSavePaymentSettings}
+                  disabled={savingSettings}
+                  className="w-full bg-action hover:bg-action/90 text-white py-5 rounded-2xl font-black italic uppercase tracking-tighter text-lg shadow-xl shadow-action/30 flex items-center justify-center gap-2 disabled:opacity-70 transition-all active:scale-[0.98]"
+                >
+                  {savingSettings ? 'Salvando...' : 'Salvar'}
+                </button>
               </div>
             </div>
           </div>
